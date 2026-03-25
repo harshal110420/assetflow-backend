@@ -1,0 +1,182 @@
+const { Op } = require('sequelize');
+const Asset = require('../models/Asset');
+const User = require('../models/User');
+const { AuditLog, Assignment } = require('../models/index');
+const QRCode = require('qrcode');
+const { v4: uuidv4 } = require('uuid');
+
+const generateAssetTag = () => `AST-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
+
+exports.getAssets = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, search, category, status, department, condition, assignedToId, sortBy = 'createdAt', sortOrder = 'DESC' } = req.query;
+    const offset = (page - 1) * limit;
+    const where = {};
+
+    if (search) where[Op.or] = [
+      { name: { [Op.like]: `%${search}%` } },
+      { assetTag: { [Op.like]: `%${search}%` } },
+      { serialNumber: { [Op.like]: `%${search}%` } },
+      { brand: { [Op.like]: `%${search}%` } },
+    ];
+    if (category) where.category = category;
+    if (status) where.status = status;
+    if (department) where.department = department;
+    if (condition) where.condition = condition;
+    if (assignedToId) where.assignedToId = assignedToId;
+
+    const { count, rows } = await Asset.findAndCountAll({
+      where,
+      include: [
+        { model: User, as: 'assignedTo', attributes: ['id', 'firstName', 'lastName', 'email', 'department'] },
+        { model: User, as: 'createdBy', attributes: ['id', 'firstName', 'lastName'] },
+      ],
+      order: [[sortBy, sortOrder]],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+    });
+
+    res.json({ success: true, data: rows, pagination: { total: count, page: parseInt(page), limit: parseInt(limit), pages: Math.ceil(count / limit) } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.getAsset = async (req, res) => {
+  try {
+    const asset = await Asset.findByPk(req.params.id, {
+      include: [
+        { model: User, as: 'assignedTo', attributes: ['id', 'firstName', 'lastName', 'email', 'department', 'phone'] },
+        { model: User, as: 'createdBy', attributes: ['id', 'firstName', 'lastName'] },
+      ],
+    });
+    if (!asset) return res.status(404).json({ success: false, message: 'Asset not found' });
+    res.json({ success: true, data: asset });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.createAsset = async (req, res) => {
+  try {
+    const assetTag = req.body.assetTag || generateAssetTag();
+    const qrData = JSON.stringify({ id: uuidv4(), tag: assetTag, name: req.body.name });
+    const qrCode = await QRCode.toDataURL(qrData);
+
+    const asset = await Asset.create({ ...req.body, assetTag, qrCode, createdById: req.user.id });
+    await AuditLog.create({ entityType: 'Asset', entityId: asset.id, action: 'CREATE', userId: req.user.id, newValues: asset.toJSON(), description: `Asset ${assetTag} created` });
+
+    res.status(201).json({ success: true, data: asset });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.updateAsset = async (req, res) => {
+  try {
+    const asset = await Asset.findByPk(req.params.id);
+    if (!asset) return res.status(404).json({ success: false, message: 'Asset not found' });
+
+    const oldValues = asset.toJSON();
+    await asset.update(req.body);
+    await AuditLog.create({ entityType: 'Asset', entityId: asset.id, action: 'UPDATE', userId: req.user.id, oldValues, newValues: asset.toJSON(), description: `Asset ${asset.assetTag} updated` });
+
+    res.json({ success: true, data: asset });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.deleteAsset = async (req, res) => {
+  try {
+    const asset = await Asset.findByPk(req.params.id);
+    if (!asset) return res.status(404).json({ success: false, message: 'Asset not found' });
+
+    await AuditLog.create({ entityType: 'Asset', entityId: asset.id, action: 'DELETE', userId: req.user.id, oldValues: asset.toJSON(), description: `Asset ${asset.assetTag} deleted` });
+    await asset.destroy();
+    res.json({ success: true, message: 'Asset deleted' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.assignAsset = async (req, res) => {
+  try {
+    const { userId, purpose, expectedReturnDate, notes } = req.body;
+    const asset = await Asset.findByPk(req.params.id);
+    if (!asset) return res.status(404).json({ success: false, message: 'Asset not found' });
+
+    const user = await User.findByPk(userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    // Close any existing active assignment
+    await Assignment.update({ isActive: false, returnedAt: new Date() }, { where: { assetId: asset.id, isActive: true } });
+
+    const assignment = await Assignment.create({ assetId: asset.id, userId, assignedById: req.user.id, purpose, expectedReturnDate, notes, conditionAtAssignment: asset.condition });
+    await asset.update({ assignedToId: userId, status: 'Active' });
+
+    res.json({ success: true, data: assignment });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.returnAsset = async (req, res) => {
+  try {
+    const { conditionAtReturn, notes } = req.body;
+    const asset = await Asset.findByPk(req.params.id);
+    if (!asset) return res.status(404).json({ success: false, message: 'Asset not found' });
+
+    await Assignment.update({ isActive: false, returnedAt: new Date(), conditionAtReturn, notes }, { where: { assetId: asset.id, isActive: true } });
+    await asset.update({ assignedToId: null, condition: conditionAtReturn || asset.condition });
+
+    res.json({ success: true, message: 'Asset returned successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.getAssetHistory = async (req, res) => {
+  try {
+    const logs = await AuditLog.findAll({
+      where: { entityType: 'Asset', entityId: req.params.id },
+      include: [{ model: User, attributes: ['id', 'firstName', 'lastName', 'email'] }],
+      order: [['createdAt', 'DESC']],
+    });
+    const assignments = await Assignment.findAll({
+      where: { assetId: req.params.id },
+      include: [{ model: User, as: 'assignedUser', attributes: ['id', 'firstName', 'lastName', 'email'] }],
+      order: [['assignedAt', 'DESC']],
+    });
+    res.json({ success: true, data: { logs, assignments } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.getDashboardStats = async (req, res) => {
+  try {
+    const [total, active, maintenance, disposed, totalValue, categoryStats, statusStats, recentAssets] = await Promise.all([
+      Asset.count(),
+      Asset.count({ where: { status: 'Active' } }),
+      Asset.count({ where: { status: 'In Maintenance' } }),
+      Asset.count({ where: { status: 'Disposed' } }),
+      Asset.sum('currentValue'),
+      Asset.findAll({ attributes: ['category', [require('sequelize').fn('COUNT', require('sequelize').col('id')), 'count']], group: ['category'] }),
+      Asset.findAll({ attributes: ['status', [require('sequelize').fn('COUNT', require('sequelize').col('id')), 'count']], group: ['status'] }),
+      Asset.findAll({ limit: 5, order: [['createdAt', 'DESC']], include: [{ model: User, as: 'assignedTo', attributes: ['firstName', 'lastName'] }] }),
+    ]);
+
+    // Warranty expiring in 30 days
+    const thirtyDaysLater = new Date();
+    thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
+    const warrantyExpiring = await Asset.count({ where: { warrantyExpiry: { [Op.between]: [new Date(), thirtyDaysLater] } } });
+
+    res.json({
+      success: true,
+      data: { total, active, maintenance, disposed, inactive: total - active - maintenance - disposed, totalValue: totalValue || 0, warrantyExpiring, categoryStats, statusStats, recentAssets },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
