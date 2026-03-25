@@ -9,7 +9,6 @@ const sequelize = new Sequelize(
     host: process.env.DB_HOST || "localhost",
     port: process.env.DB_PORT || 3306,
     dialect: "mysql",
-    // logging: process.env.NODE_ENV === 'development' ? console.log : false,
     logging: false,
     pool: {
       max: 10,
@@ -21,6 +20,15 @@ const sequelize = new Sequelize(
       timestamps: true,
       underscored: false,
     },
+    // ── SSL for Aiven ─────────────────────────────────────────────
+    ...(process.env.MYSQL_SSL === "true" && {
+      dialectOptions: {
+        ssl: {
+          require: true,
+          rejectUnauthorized: false,
+        },
+      },
+    }),
   },
 );
 
