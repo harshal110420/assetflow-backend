@@ -16,6 +16,7 @@ const categoryController = require("../controllers/Categorycontroller");
 const handoverMailController = require("../controllers/handoverMailController");
 const auditLogController = require("../controllers/auditLogController");
 const importController = require("../controllers/importController");
+const amcController = require("../controllers/amcController");
 const { protect, authorize } = require("../middleware/auth");
 const { checkPermission } = require("../middleware/checkPermission");
 
@@ -727,6 +728,64 @@ router.get(
   tenantMiddleware,
   checkPermission("audit_logs", "view"),
   auditLogController.getAuditLogDetail,
+);
+
+// ── AMC Service ─────────────────────────────────────────────────────────────
+
+router.get("/amc", protect, tenantMiddleware, amcController.getAllAMC);
+router.get(
+  "/amc/expiring",
+  protect,
+  tenantMiddleware,
+  amcController.getExpiringAMC,
+);
+
+router.get(
+  "/amc/asset/:assetId/coverage",
+  protect,
+  tenantMiddleware,
+  amcController.checkAssetCoverage,
+);
+
+router.get("/amc/:id", protect, tenantMiddleware, amcController.getByIdAMC);
+
+router.post(
+  "/amc",
+  protect,
+  tenantMiddleware,
+  checkPermission("amc", "new"),
+  amcController.createAMC,
+);
+
+router.put(
+  "/amc/:id",
+  protect,
+  tenantMiddleware,
+  checkPermission("amc", "edit"),
+  amcController.updateAMC,
+);
+
+router.delete(
+  "/amc/:id",
+  protect,
+  tenantMiddleware,
+  checkPermission("amc", "edit"),
+  amcController.removeAMC,
+);
+
+// ── Service visit ─────────────────────────────────────────────────────────────
+
+router.get(
+  "/amc/:id/visits",
+  protect,
+  tenantMiddleware,
+  amcController.getAMCVisits,
+);
+router.post(
+  "/amc/:id/visits",
+  protect,
+  tenantMiddleware,
+  amcController.addAMCVisit,
 );
 
 // ── DEBUG (remove in production) ──────────────────────────────────────────────

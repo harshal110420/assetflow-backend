@@ -18,6 +18,8 @@ const Employee = require("./models/Employee");
 const Division = require("./models/Division");
 const Department = require("./models/Department");
 const EmployeeDivision = require("./models/EmployeeDivision");
+const AmcContract = require("./models/AmcContract");
+const AmcServiceVisit = require("./models/AmcServiceVisit");
 
 const {
   Maintenance,
@@ -255,6 +257,48 @@ Department.hasMany(User, { foreignKey: "departmentId", as: "users" });
 User.belongsTo(Role, { as: "roleObj", foreignKey: "roleId" });
 Role.hasMany(User, { foreignKey: "roleId", as: "roleUsers" });
 AuditLog.belongsTo(User, { foreignKey: "userId", as: "user" });
+
+Tenant.hasMany(AmcContract, { foreignKey: "tenantId", as: "amcContracts" });
+Tenant.hasMany(AmcServiceVisit, {
+  foreignKey: "tenantId",
+  as: "amcServiceVisits",
+});
+
+AmcContract.belongsTo(Tenant, { foreignKey: "tenantId", as: "tenant" });
+AmcServiceVisit.belongsTo(Tenant, { foreignKey: "tenantId", as: "tenant" });
+
+AmcContract.belongsToMany(Asset, {
+  through: "amc_contract_assets", // junction table — auto create hogi
+  foreignKey: "contractId",
+  otherKey: "assetId",
+  as: "assets",
+});
+Asset.belongsToMany(AmcContract, {
+  through: "amc_contract_assets",
+  foreignKey: "assetId",
+  otherKey: "contractId",
+  as: "amcContracts",
+});
+
+// AmcContract -> AmcServiceVisit  (One-to-Many)
+AmcContract.hasMany(AmcServiceVisit, {
+  foreignKey: "contractId",
+  as: "serviceVisits",
+});
+AmcServiceVisit.belongsTo(AmcContract, {
+  foreignKey: "contractId",
+  as: "contract",
+});
+
+// AmcServiceVisit -> Asset  (visit kis asset ke liye thi)
+AmcServiceVisit.belongsTo(Asset, {
+  foreignKey: "assetId",
+  as: "asset",
+});
+Asset.hasMany(AmcServiceVisit, {
+  foreignKey: "assetId",
+  as: "serviceVisits",
+});
 // server.js ke top pe
 console.log("FRONTEND_URL:", process.env.FRONTEND_URL);
 
@@ -281,13 +325,18 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", routes);
 
-app.get("/health", (req, res) =>
-  res.json({
-    status: "OK",
-    timestamp: new Date().toISOString(),
-    version: "2.0.0",
-  }),
-);
+app.get("/health", async (req, res) => {
+  try {
+    await sequelize.authenticate(); // ✅ DB bhi ping hoga
+    res.json({
+      status: "OK",
+      timestamp: new Date().toISOString(),
+      version: "2.0.0",
+    });
+  } catch (err) {
+    res.status(500).json({ status: "DB_ERROR", message: err.message });
+  }
+});
 
 app.use("*", (req, res) =>
   res.status(404).json({ success: false, message: "Route not found" }),
