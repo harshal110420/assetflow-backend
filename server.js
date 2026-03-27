@@ -20,6 +20,8 @@ const Department = require("./models/Department");
 const EmployeeDivision = require("./models/EmployeeDivision");
 const AmcContract = require("./models/AmcContract");
 const AmcServiceVisit = require("./models/AmcServiceVisit");
+const Brand = require("./models/Brand");
+const Vendor = require("./models/Vendor");
 
 const {
   Maintenance,
@@ -80,6 +82,13 @@ Tenant.hasMany(EmployeeDivision, {
 Tenant.hasMany(UserLocation, { foreignKey: "tenantId", as: "userLocations" });
 Tenant.hasMany(Category, { foreignKey: "tenantId", as: "categories" }); // ← ADD
 Tenant.hasMany(SubCategory, { foreignKey: "tenantId", as: "subCategories" }); // ← ADD
+Tenant.hasMany(AmcContract, { foreignKey: "tenantId", as: "amcContracts" });
+Tenant.hasMany(AmcServiceVisit, {
+  foreignKey: "tenantId",
+  as: "amcServiceVisits",
+});
+Tenant.hasMany(Brand, { foreignKey: "tenantId", as: "brands" });
+Tenant.hasMany(Vendor, { foreignKey: "tenantId", as: "vendors" });
 
 // Reverse — belongsTo Tenant
 User.belongsTo(Tenant, { foreignKey: "tenantId", as: "tenant" });
@@ -221,6 +230,13 @@ Employee.hasMany(Maintenance, {
   foreignKey: "technicianId",
 });
 
+// ── Asset → Brand / Vendor ────────────────────────────────────────────────────
+Asset.belongsTo(Brand, { foreignKey: "brandId", as: "brandObj" });
+Brand.hasMany(Asset, { foreignKey: "brandId", as: "brandAssets" });
+
+Asset.belongsTo(Vendor, { foreignKey: "vendorId", as: "vendorObj" });
+Vendor.hasMany(Asset, { foreignKey: "vendorId", as: "vendorAssets" });
+
 // ── Approvals ─────────────────────────────────────────────────────────────────
 ApprovalTemplate.hasMany(ApprovalTemplateStep, { foreignKey: "templateId" });
 ApprovalTemplateStep.belongsTo(ApprovalTemplate, { foreignKey: "templateId" });
@@ -257,16 +273,8 @@ Department.hasMany(User, { foreignKey: "departmentId", as: "users" });
 User.belongsTo(Role, { as: "roleObj", foreignKey: "roleId" });
 Role.hasMany(User, { foreignKey: "roleId", as: "roleUsers" });
 AuditLog.belongsTo(User, { foreignKey: "userId", as: "user" });
-
-Tenant.hasMany(AmcContract, { foreignKey: "tenantId", as: "amcContracts" });
-Tenant.hasMany(AmcServiceVisit, {
-  foreignKey: "tenantId",
-  as: "amcServiceVisits",
-});
-
 AmcContract.belongsTo(Tenant, { foreignKey: "tenantId", as: "tenant" });
 AmcServiceVisit.belongsTo(Tenant, { foreignKey: "tenantId", as: "tenant" });
-
 AmcContract.belongsToMany(Asset, {
   through: "amc_contract_assets", // junction table — auto create hogi
   foreignKey: "contractId",
@@ -299,8 +307,8 @@ Asset.hasMany(AmcServiceVisit, {
   foreignKey: "assetId",
   as: "serviceVisits",
 });
-// server.js ke top pe
-console.log("FRONTEND_URL:", process.env.FRONTEND_URL);
+Brand.belongsTo(Tenant, { foreignKey: "tenantId", as: "tenant" });
+Vendor.belongsTo(Tenant, { foreignKey: "tenantId", as: "tenant" });
 
 // ── App Setup ─────────────────────────────────────────────────────────────────
 const app = express();

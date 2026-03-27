@@ -17,6 +17,8 @@ const handoverMailController = require("../controllers/handoverMailController");
 const auditLogController = require("../controllers/auditLogController");
 const importController = require("../controllers/importController");
 const amcController = require("../controllers/amcController");
+const brandController = require("../controllers/brandController");
+const vendorController = require("../controllers/vendorController");
 const { protect, authorize } = require("../middleware/auth");
 const { checkPermission } = require("../middleware/checkPermission");
 
@@ -785,7 +787,75 @@ router.post(
   "/amc/:id/visits",
   protect,
   tenantMiddleware,
+  checkPermission("amc", "new"),
   amcController.addAMCVisit,
+);
+
+// ── Brands ────────────────────────────────────────────────────────────────────
+router.get("/brands", protect, tenantMiddleware, brandController.getAllBrands);
+router.get(
+  "/brands/:id",
+  protect,
+  tenantMiddleware,
+  brandController.getBrandById,
+);
+
+router.post(
+  "/brands",
+  protect,
+  tenantMiddleware,
+  checkPermission("brands", "new"),
+  brandController.createBrand,
+);
+router.put(
+  "/brands/:id",
+  protect,
+  tenantMiddleware,
+  checkPermission("brands", "edit"),
+  brandController.updateBrand,
+);
+router.delete(
+  "/brands/:id",
+  protect,
+  tenantMiddleware,
+  checkPermission("brands", "delete"),
+  brandController.deleteBrand,
+);
+
+// ── Vendors ───────────────────────────────────────────────────────────────────
+router.get(
+  "/vendors",
+  protect,
+  tenantMiddleware,
+  vendorController.getAllVendors,
+);
+router.get(
+  "/vendors/:id",
+  protect,
+  tenantMiddleware,
+  vendorController.getVendorById,
+);
+
+router.post(
+  "/vendors",
+  protect,
+  tenantMiddleware,
+  checkPermission("vendors", "new"),
+  vendorController.createVendor,
+);
+router.put(
+  "/vendors/:id",
+  protect,
+  tenantMiddleware,
+  checkPermission("vendors", "new"),
+  vendorController.updateVendor,
+);
+router.delete(
+  "/vendors/:id",
+  protect,
+  tenantMiddleware,
+  checkPermission("vendors", "new"),
+  vendorController.deleteVendor,
 );
 
 // ── DEBUG (remove in production) ──────────────────────────────────────────────

@@ -36,7 +36,14 @@ const Asset = sequelize.define(
     },
 
     // ── Asset Details ───────────────────────────────────────────────────────
-    brand: { type: DataTypes.STRING(100) },
+    brandId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+    },
+    vendorId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+    },
     model: { type: DataTypes.STRING(100) },
     serialNumber: { type: DataTypes.STRING(200) },
 
@@ -69,7 +76,6 @@ const Asset = sequelize.define(
     currentValue: { type: DataTypes.DECIMAL(15, 2) },
     warrantyExpiry: { type: DataTypes.DATEONLY },
     depreciationRate: { type: DataTypes.DECIMAL(5, 2), defaultValue: 20.0 },
-    vendor: { type: DataTypes.STRING(255) },
     invoiceNumber: { type: DataTypes.STRING(100) },
 
     // ── Assignment ─────────────────────────────────────────────────────────

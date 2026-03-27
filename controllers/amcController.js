@@ -3,6 +3,7 @@ const { Op } = require("sequelize");
 const AmcContract = require("../models/AmcContract");
 const AmcServiceVisit = require("../models/AmcServiceVisit");
 const Asset = require("../models/Asset");
+const { AuditLog } = require("../models/index");
 
 // ── Helper: Auto update status based on dates ─────────────────────────────────
 const resolveStatus = (startDate, endDate) => {
@@ -166,7 +167,15 @@ exports.createAMC = async (req, res) => {
       where: { id: contract.id, tenantId }, // ✅
       include: [{ model: Asset, as: "assets", through: { attributes: [] } }],
     });
-
+    await AuditLog.create({
+      entityType: "AmcContract",
+      entityId: contract.id,
+      tenantId,
+      action: "CREATE",
+      userId: req.user.id,
+      newValues: full.toJSON(),
+      description: `AMC Contract "${contractNumber}" created for vendor "${vendorName}"`,
+    });
     res.status(201).json({ success: true, data: full });
   } catch (err) {
     if (err.name === "SequelizeUniqueConstraintError") {
@@ -213,7 +222,15 @@ exports.updateAMC = async (req, res) => {
         { model: AmcServiceVisit, as: "serviceVisits" },
       ],
     });
-
+    await AuditLog.create({
+      entityType: "AmcContract",
+      entityId: contract.id,
+      tenantId,
+      action: "UPDATE",
+      userId: req.user.id,
+      newValues: full.toJSON(),
+      description: `AMC Contract "${contract.contractNumber}" updated`,
+    });
     res.json({ success: true, data: full });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -230,7 +247,15 @@ exports.removeAMC = async (req, res) => {
     });
     if (!contract)
       return res.status(404).json({ success: false, message: "Not found" });
-
+    await AuditLog.create({
+      entityType: "AmcContract",
+      entityId: contract.id,
+      tenantId,
+      action: "DELETE",
+      userId: req.user.id,
+      oldValues: contract.toJSON(),
+      description: `AMC Contract "${contract.contractNumber}" deleted`,
+    });
     await contract.destroy();
     res.json({ success: true, message: "Contract deleted" });
   } catch (err) {
@@ -360,7 +385,15 @@ exports.addAMCVisit = async (req, res) => {
       tenantId, // ✅ (agar AmcServiceVisit model mein tenantId hai)
       createdBy: req.user?.id,
     });
-
+    await AuditLog.create({
+      entityType: "AmcServiceVisit",
+      entityId: visit.id,
+      tenantId,
+      action: "CREATE",
+      userId: req.user.id,
+      newValues: visit.toJSON(),
+      description: `Service visit logged for contract "${contract.contractNumber}"`,
+    });
     res.status(201).json({ success: true, data: visit });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
