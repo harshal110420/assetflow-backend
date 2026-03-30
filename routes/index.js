@@ -386,6 +386,7 @@ router.post(
 
 // ── Roles ─────────────────────────────────────────────────────────────────────
 router.get("/roles", protect, tenantMiddleware, roleController.getRoles);
+router.get("/roles/:id", protect, tenantMiddleware, roleController.getRoleById);
 router.post(
   "/roles",
   protect,
@@ -422,6 +423,13 @@ router.get(
   tenantMiddleware,
   authorize("admin"),
   permissionController.getAllMenus,
+);
+router.get(
+  "/menus/:id",
+  protect,
+  tenantMiddleware,
+  authorize("admin"),
+  permissionController.getMenuById,
 );
 router.post(
   "/menus",

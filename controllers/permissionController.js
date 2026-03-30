@@ -385,6 +385,19 @@ exports.getAllMenus = async (req, res) => {
   }
 };
 
+exports.getMenuById = async (req, res) => {
+  try {
+    const menu = await Menu.findByPk(req.params.id);
+    if (!menu)
+      return res
+        .status(404)
+        .json({ success: false, message: "Menu not found" });
+    res.json({ success: true, data: menu });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 exports.createMenu = async (req, res) => {
   try {
     const { name, slug, icon, order, availableActions } = req.body;

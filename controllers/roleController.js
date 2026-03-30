@@ -14,6 +14,19 @@ exports.getRoles = async (req, res) => {
   }
 };
 
+exports.getRoleById = async (req, res) => {
+  try {
+    const role = await Role.findByPk(req.params.id);
+    if (!role)
+      return res
+        .status(404)
+        .json({ success: false, message: "Role not found" });
+    res.json({ success: true, data: role });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 // ── GET ROLE WITH PERMISSIONS ─────────────────────────────────────────────────
 exports.getRolePermissions = async (req, res) => {
   try {
