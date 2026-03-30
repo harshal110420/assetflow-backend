@@ -71,12 +71,18 @@ exports.getUser = async (req, res) => {
         .status(404)
         .json({ success: false, message: "User not found" });
 
-    const assignedAssets = await Asset.findAll({
-      where: { assignedToId: req.params.id, tenantId: req.user.tenantId }, // ← ADD tenantId
-      attributes: ["id", "name", "assetTag", "category", "status"],
-    });
+    // const assignedAssets = await Asset.findAll({
+    //   where: { assignedToId: req.params.id, tenantId: req.user.tenantId }, // ← ADD tenantId
+    //   attributes: ["id", "name", "assetTag", "category", "status"],
+    // });
 
-    res.json({ success: true, data: { ...user.toJSON(), assignedAssets } });
+    res.json({
+      success: true,
+      data: {
+        ...user.toJSON(),
+        //  assignedAssets
+      },
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
