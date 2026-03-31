@@ -139,6 +139,12 @@ router.get(
   tenantMiddleware,
   maintenanceController.getMaintenances,
 );
+router.get(
+  "/maintenance/:id",
+  protect,
+  tenantMiddleware,
+  maintenanceController.getMaintenancesById,
+);
 router.post(
   "/maintenance",
   protect,

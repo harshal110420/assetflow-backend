@@ -59,6 +59,34 @@ exports.getMaintenances = async (req, res) => {
   }
 };
 
+// ─── GET MAINTENANCE BY ID ───────────────────────────────────────────────────
+exports.getMaintenancesById = async (req, res) => {
+  try {
+    const maintenance = await Maintenance.findOne({
+      where: { id: req.params.id, tenantId: req.user.tenantId }, // ← ADD tenantId
+      include: [
+        {
+          model: Asset,
+          attributes: ["id", "name", "assetTag", "categoryId", "location"],
+        },
+        {
+          model: Employee,
+          as: "technician",
+          attributes: ["id", "firstName", "lastName", "email", "designation"],
+        },
+      ],
+    });
+    if (!maintenance)
+      return res
+        .status(404)
+        .json({ success: false, message: "Maintenance not found" });
+
+    res.json({ success: true, data: maintenance });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 // ─── CREATE MAINTENANCE ───────────────────────────────────────────────────────
 exports.createMaintenance = async (req, res) => {
   try {
