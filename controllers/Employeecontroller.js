@@ -147,6 +147,20 @@ exports.createEmployee = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Email already exists" });
 
+    // ── employeeCode uniqueness check ─────────────────────────────
+    if (req.body.employeeCode) {
+      const codeExists = await Employee.findOne({
+        where: {
+          employeeCode: req.body.employeeCode,
+          tenantId: req.user.tenantId,
+        },
+      });
+      if (codeExists)
+        return res
+          .status(400)
+          .json({ success: false, message: "Employee code already exists" });
+    }
+
     const { divisionIds, ...employeeData } = req.body;
 
     const employee = await Employee.create({
@@ -190,10 +204,17 @@ exports.createEmployee = async (req, res) => {
 
     res.status(201).json({ success: true, data: created });
   } catch (err) {
+    // Sequelize unique constraint error ko properly handle karo
+    if (err.name === "SequelizeUniqueConstraintError") {
+      const field = err.errors?.[0]?.path || "field";
+      return res.status(400).json({
+        success: false,
+        message: `${field} already exists`,
+      });
+    }
     res.status(500).json({ success: false, message: err.message });
   }
 };
-
 // ─── UPDATE EMPLOYEE ──────────────────────────────────────────────────────────
 exports.updateEmployee = async (req, res) => {
   try {
